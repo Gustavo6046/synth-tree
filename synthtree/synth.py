@@ -190,7 +190,7 @@ class SynthTree:
                 span = ma - mi
 
                 # pack 
-                encoded = array.array(sample_type.upper(), ((int((sample - mi) / span - 0.5) * limit * amplitude) for sample in wsamples))
+                encoded = array.array(sample_type.upper(), (int(((sample - mi) / span - 0.5) * limit * amplitude) for sample in wsamples))
 
                 # write!
                 fp.writeframes(encoded.tobytes())
@@ -388,7 +388,7 @@ class PCMStream(io.RawIOBase):
 
         return samp
 
-    def read(self, size: int):
+    def read(self, size):
         if size == -1:
             raise ValueError("Blocking read would block forever! Please specify a size. -1 is for reading entire files, but THE SYNTH is forever, silly! :P")
         
@@ -425,7 +425,7 @@ class PCMStream(io.RawIOBase):
     def tell(self):
         return self.pos_bytes
 
-    def seek(self, offset: int, whence: int):
+    def seek(self, offset, whence):
         if whence == 0: # seek_set
             diff = offset - self.pos_bytes
 
