@@ -1,0 +1,16 @@
+*.egg-info
+*.dist-info
+*.pyc
+build
+dist
+docs/_build
+src/wheel/_version.py
+__pycache__
+.coverage
+.pytest_cache
+.tox
+.idea
+.cache
+.eggs
+.pre-commit-config.yaml
+*.wav
