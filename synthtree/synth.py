@@ -12,6 +12,7 @@ import wave
 import struct
 import array
 import collections
+import itertools
 
 
 try:
@@ -225,11 +226,10 @@ class SynthTree:
         elif isinstance(index, slice) and isinstance(value, float):
             dirty = sum(1 if x == 0.0 else 0 for x in self.values[index]) != (1 if value == 0.0 else 0)
 
-            for i in range(index.start, index.stop):
-                self.values[i] = value
+            self.values[index] = itertools.repeat(value, index.stop - index.start)
 
         else:
-            raise TypeError("Either provide an integer index and a single float value, or a slice index and a single sequence value!")
+            raise TypeError("Either provide an integer index and a single float value, or a slice index and a single sequence value, or a slice index and a single value to be repeated!")
 
         # Update node structure.
         if dirty:
