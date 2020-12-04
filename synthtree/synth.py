@@ -11,6 +11,7 @@ import math
 import wave
 import struct
 import array
+import collections
 
 
 try:
@@ -210,11 +211,29 @@ class SynthTree:
 
         return duplicate
 
-    def __setitem__(self, index: int, value: float):
-        self.values[index] = value
+    def __setitem__(self, index: typing.Union[int, slice], value: typing.Union[float, typing.Sequence[float]]):
+        if isinstance(index, int) and isinstance(value, float):
+            dirty = (self.values[index] == 0.0) is not (value == 0.0)
+
+            self.values[index] = value
+    
+        elif isinstance(index, slice) and (isinstance(value, collections.Sequence) or (HAS_NUMPY and isinstance(value, np.ndarray))):
+            dirty = sum(1 if x == 0.0 else 0 for x in self.values[index]) != sum(1 if x == 0.0 else 0 for x in value)
+
+            self.values[index] = value
+
+        elif isinstance(index, slice) and isinstance(value, float):
+            dirty = sum(1 if x == 0.0 else 0 for x in self.values[index]) != (1 if value == 0.0 else 0)
+
+            for i in range(index.start, index.stop):
+                self.values[i] = value
+
+        else:
+            raise TypeError("Either provide an integer index and a single float value, or a slice index and a single sequence value!")
 
         # Update node structure.
-        self.refresh()
+        if dirty:
+            self.refresh()
 
     def __getitem__(self, index: int) -> float:
         return self.values[index]
@@ -248,14 +267,14 @@ class SynthTree:
             elif isinstance(curr, SynthNodeLeaf):
                 print(header + " % leaf - index {}, freq {:.2f}Hz".format(imin, curr.frequency))
 
-            elif isinstance(curr, SynthNodeDiscard):
-                print(header + " o discard - range {} to {}".format(imin, imax))
+            #lif isinstance(curr, SynthNodeDiscard):
+                #rint(header + " o discard - range {} to {}".format(imin, imax))
 
-    def find_node_for(self, index: int) -> 'SynthNode':
+    def find_node_for(self, index: int) -> typing.Union['SynthNode', None]:
         """
         Find the node responsible for the generation of this
-        frequency index. May return a SynthNodeLeaf or a
-        SynthNodeDiscard.
+        frequency index. May return a SynthNodeLeaf or
+        None.
         """
 
         curr = self.root
@@ -267,7 +286,7 @@ class SynthTree:
             else:
                 return curr
 
-    def split_for(self, start: int, end: int) -> 'SynthNode':
+    def split_for(self, start: int, end: int) -> typing.Union['SynthNode', None]:
         """
         Creates a node (or subtree thereof, in the case
         of a SynthNodeSplit) that properly encompasses
@@ -278,13 +297,13 @@ class SynthTree:
         working on this library yourself.
         """
 
-        res: SynthNode
+        res: typing.Union['SynthNode', None]
     
         sliced = self.values[start : end]
     
         if all(x == 0.0 for x in sliced):
             # all zeros - dismissable silence
-            res = SynthNodeDiscard(self)
+            res = None
 
         elif len(sliced) == 1:
             # single value - single leaf
@@ -297,16 +316,16 @@ class SynthTree:
             res = SynthNodeSplit(self, middle, (start, end))
 
         # Add this node to the all_nodes list.
-        self.all_nodes.add(res)
+        if res: self.all_nodes.add(res)
         
         return res
 
     def refresh(self):
         """
-        Destroys all nodes if they have been
-        setup previously, then (re-)creates the
-        binary tree structure. Also recalculates
-        some other internal values.
+        If a change is detected, destroys all
+        nodes if they have been setup previously,
+        then (re-)creates the binary tree structure.
+        Does nothing if no significant change is detected.
         """
 
         # cap values to ensure no excess (that would be bad!)
@@ -471,7 +490,7 @@ class SynthNodeSplit(SynthNode):
     A special kind of SynthTree node, that is a (usually uniform)
     split of a region of the values in two. The left and right
     areas are computed individually and then added -- because additive
-    synthesis --. Those in turn can be either Discard, Leaf, or more Split
+    synthesis --. Those in turn can be either None, a Leaf, or more Split
     nodes.
     """
 
@@ -497,30 +516,7 @@ class SynthNodeSplit(SynthNode):
         adds them together.
         """
     
-        return self.left(pos) + self.right(pos)
-
-class SynthNodeDiscard(SynthNode):
-    """
-    A synth node that returns zero.
-    This is useful, because it allows
-    abstracting away the computations of
-    not just single zero values, but also
-    entire regions of zero values at once,
-    with a single 'return zero'. It even
-    skips the need for the sine function!
-    """
-
-    def __init__(self, tree: SynthTree):
-        self.tree = tree
-
-    def __call__(self, pos: float = None) -> float:
-        """
-        Computes the sample for a contiguous region
-        of parameter zero sine-wave oscillators...
-        hold on, that's just zero! :o
-        """
-    
-        return 0.0
+        return (0.0 if not self.left else self.left(pos)) + (0.0 if not self.right else self.right(pos))
 
 class SynthNodeLeaf(SynthNode):
     """
