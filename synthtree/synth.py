@@ -267,9 +267,6 @@ class SynthTree:
             elif isinstance(curr, SynthNodeLeaf):
                 print(header + " % leaf - index {}, freq {:.2f}Hz".format(imin, curr.frequency))
 
-            #lif isinstance(curr, SynthNodeDiscard):
-                #rint(header + " o discard - range {} to {}".format(imin, imax))
-
     def find_node_for(self, index: int) -> typing.Union['SynthNode', None]:
         """
         Find the node responsible for the generation of this
