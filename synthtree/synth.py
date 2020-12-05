@@ -233,6 +233,9 @@ class SynthTree:
 
         # Update node structure.
         if dirty:
+            self.resetup()
+
+        else:
             self.refresh()
 
     def __getitem__(self, index: int) -> float:
@@ -319,10 +322,25 @@ class SynthTree:
 
     def refresh(self):
         """
+        Updates all nodes in the all_nodes set.
+        """
+
+        for n in self.all_nodes:
+            n.update()
+
+    def resetup(self):
+        """
         If a change is detected, destroys all
         nodes if they have been setup previously,
         then (re-)creates the binary tree structure.
-        Does nothing if no significant change is detected.
+        Does nothing if no 'significant' change to the
+        values list is detected.
+
+        A significant change is any that would require
+        a change to the binary tree structure to
+        take effect. This does not include changing values
+        that were already non-zero to a different, also
+        non-zero, value.
         """
 
         # cap values to ensure no excess (that would be bad!)
@@ -496,16 +514,15 @@ class SynthNodeSplit(SynthNode):
         self.split_index = split_index
         self.range = index_range
 
-        self.update()
+        self.left  = self.tree.split_for(self.range[0], self.split_index)
+        self.right = self.tree.split_for(self.split_index, self.range[1])
 
     def update(self):
         """
-        Creates (or recreates) the left and right children nodes of this
-        Split node.
+        Not necessary for a Split node.
         """
     
-        self.left  = self.tree.split_for(self.range[0], self.split_index)
-        self.right = self.tree.split_for(self.split_index, self.range[1])
+        pass
 
     def __call__(self, pos: float) -> float:
         """
@@ -524,6 +541,9 @@ class SynthNodeLeaf(SynthNode):
     def __init__(self, tree: SynthTree, frequency_index: int):
         self.tree = tree
         self.frequency_index = frequency_index
+        
+        self.frequency = self.tree.frequency(self.frequency_index)
+        self.frequency_rads = self.frequency * math.tau
 
         self.update()
 
@@ -539,8 +559,6 @@ class SynthNodeLeaf(SynthNode):
         again and again for every sample.
         """
     
-        self.frequency = self.tree.frequency(self.frequency_index)
-        self.frequency_rads = self.frequency * math.tau
         self.value = self.tree.values[self.frequency_index]
 
     def __call__(self, pos: float) -> float:
