@@ -73,7 +73,7 @@ class SynthTree:
     SERIALIZATION_VERSION: int = 1
     SERIALIZATION_TAG: str = 'SYNTH TREE'
 
-    def __init__(self, min_freq: float = 2.0, max_freq: float = 22050.0, resolution: int = 4096):
+    def __init__(self, min_freq: float = 2.0, max_freq: float = 22050.0, resolution: int = 4096, exponent: float = 2.0):
         """
         Initializes a synth tree. This will also by default initialize all parameters
         to zero; if you try to get (or listen to) a wave from a newly initialized
@@ -83,8 +83,10 @@ class SynthTree:
         self.min_freq   = min_freq 
         self.max_freq   = max_freq
         self.resolution = resolution
+        self.exponent   = exponent
 
-        self.freq_step = (max_freq - min_freq) / resolution
+        self.freq_step          = (max_freq - min_freq) / resolution
+        self.freq_span_root   = (max_freq - min_freq) ** (1 / self.exponent)
 
         self.all_nodes: typing.Set[SynthNodeType] = set()
         self.values    = [0.0 for _ in range(resolution)] 
@@ -377,7 +379,7 @@ class SynthTree:
         too --, you need not concern about this function.
         """
     
-        return self.min_freq + index * self.freq_step
+        return self.min_freq + (index / self.resolution * self.freq_span_root) ** self.exponent
 
 class PCMStream(io.RawIOBase):
     """
@@ -409,12 +411,12 @@ class PCMStream(io.RawIOBase):
         self.signed         = signed
 
     def _sample_here(self):
-        samp = self.synth(self.pos) * self.amplification
+        samp = self.synth(self.pos)
 
         if abs(samp) > self._limiter_span:
             self._limiter_span = abs(samp)
 
-        samp = (samp / self._limiter_span + 1.0) * self.limit / 2.0
+        samp = (samp * self.amplification / self._limiter_span + 1.0) * self.limit / 2.0
         samp = int(max(0, min(self.limit, samp)))
 
         if self.signed:
